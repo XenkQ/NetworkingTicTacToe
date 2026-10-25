@@ -316,7 +316,7 @@ All C# DTOs are immutable positional `record` types in server/DTOs/GameContracts
   - Verification: `npm --prefix client run build`
 
 ### Phase 4: Phaser 4 BoardScene, HUD & Interactive UX
-- [ ] **Step 4.1:** Implement `BoardHud` UI helper and `BoardScene` with 3x3 interactive grid, X/O placement tweens, winning line highlight, rematch button, retry-join button, connection status banner, and `SHUTDOWN` listener cleanup.
+- [x] **Step 4.1:** Implement `BoardHud` UI helper and `BoardScene` with 3x3 interactive grid, X/O placement tweens, winning line highlight, rematch button, retry-join button, connection status banner, and `SHUTDOWN` listener cleanup.
   - Files: client/src/ui/BoardHud.ts, client/src/scenes/BoardScene.ts, client/src/main.ts
   - Verification: `npm --prefix client run build`
 
