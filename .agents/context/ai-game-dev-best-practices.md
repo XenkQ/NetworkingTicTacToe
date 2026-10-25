@@ -34,13 +34,13 @@ Review checklist:
 
 ### 2. Network Protocol & SignalR Synchronization
 
-- Scaffold C# DTO records in `server/DTOs/` and matching TypeScript interfaces in `client/src/types/`.
+- Scaffold modular C# DTO records in server/DTOs/ and matching TypeScript interfaces in client/src/types/ (grouping tightly coupled request/response or nested snapshot types into plural files and keeping standalone DTOs in separate files rather than a single monolithic file).
 - Implement strongly typed `Hub<IGameClient>` methods and `NetworkService` client wrappers.
 - Handle connection lifecycle events (`OnConnectedAsync`, `OnDisconnectedAsync`, reconnects, opponent abandonment).
 
 Review checklist:
 
-1. Do C# DTOs and TypeScript interfaces match in property names (accounting for camelCase JSON serialization) and types?
+1. Do C# DTOs and TypeScript interfaces match in file grouping, property names (accounting for camelCase JSON serialization), and types?
 2. Are SignalR group additions/removals properly awaited and cleaned up on disconnect?
 3. Does the remaining player receive an immediate, clear notification if their opponent disconnects?
 

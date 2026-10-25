@@ -90,7 +90,7 @@ export const game = new Phaser.Game(config);
 ```typescript
 import Phaser from 'phaser';
 import type { IGameClientService } from '../services/IGameClientService';
-import type { MoveResultDto, GameStateDto } from '../types/GameContracts';
+import type { MoveResultDto, GameStateDto } from '../types';
 
 export interface BoardSceneData {
   readonly sessionId: string;

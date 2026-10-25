@@ -39,8 +39,8 @@ When a file contains legacy style, prefer incremental migration in touched areas
 ### Shared Rules (.agents/context/shared-coding-standards.md)
 - **English Language Invariant**: All code identifiers, comments, XML/JSDoc docstrings, logs, templates, and documentation must be strictly in English.
 - **Authoritative Server**: The server owns canonical board state, move legality, turn order, and win/draw evaluation; the client dispatches intent and renders state.
-- **Contract Alignment**: Synchronize C# `PascalCase` positional records in server/DTOs/ with TypeScript `camelCase` DTO interfaces in client/src/types/ (or client/src/models/).
-- **One Primary Type Per File**: Keep one primary runtime class, service, hub, or scene per file; colocate narrow single-implementation C# interfaces above their implementation.
+- **Contract Alignment & Modular DTOs**: Synchronize C# `PascalCase` positional records in server/DTOs/ with TypeScript `camelCase` DTO interfaces in client/src/types/ (or client/src/models/). Group closely related DTOs (request/response pairs or nested snapshot types) into descriptive plural files and place standalone DTOs into individual files—never in a single monolithic file.
+- **One Primary Type Per File**: Keep one primary runtime class, service, hub, scene, or standalone DTO per file; colocate narrow single-implementation C# interfaces above their implementation.
 - **Zero Warnings Policy**: Resolve all compiler (`dotnet build`, `tsc`) and architecture linter (.agents/scripts/check-architecture.ps1) warnings before finishing a task.
 
 ### Server & Tests Rules (.agents/context/server-coding-standards.md)

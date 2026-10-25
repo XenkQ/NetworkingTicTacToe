@@ -62,7 +62,7 @@ Apply these rules to all TypeScript and configuration files under:
 ## 5) SignalR Client Resilience & Contract Alignment
 
 - **Typed Service Wrappers**: Wrap `connection.invoke(...)` and `connection.on(...)` inside typed methods in client/src/services/ so scenes interact only with typed domain callbacks and promises.
-- **DTO Synchronization**: Keep TypeScript DTO interfaces in client/src/types/ (or client/src/models/) aligned with C# records in server/DTOs/, using `camelCase` property names matching ASP.NET Core SignalR's default JSON serialization.
+- **DTO Synchronization & Modular Organization**: Keep TypeScript DTO interfaces in client/src/types/ (or client/src/models/) aligned with C# records in server/DTOs/, using `camelCase` property names matching ASP.NET Core SignalR's default JSON serialization. Mirror the server's modular file division: group related request/response or composite snapshot interfaces (e.g., client/src/types/MoveDtos.ts, client/src/types/GameStateDtos.ts), place standalone DTOs in their own files (e.g., client/src/types/JoinGameResponseDto.ts), keep shared literal union types in client/src/types/GameDomainTypes.ts, and re-export through client/src/types/index.ts rather than using a single monolithic contracts file.
 - **Connection State Handling**: Handle connection drops, reconnection transitions (`withAutomaticReconnect`), and opponent disconnect notifications gracefully in the UI without leaving scenes in an unresponsive state.
 
 ---
