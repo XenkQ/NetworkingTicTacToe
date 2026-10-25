@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { LOGICAL_WIDTH, RENDER_RESOLUTION } from '../config/displayConfig';
 import type {
   ConnectionStateType,
   GameStateDto,
@@ -10,12 +11,13 @@ export interface BoardHudCallbacks {
   readonly onRetryJoinClicked: () => void;
 }
 
+const CENTER_X = LOGICAL_WIDTH / 2;
 const TOP_BAR_Y = 28;
 const CONNECTION_PILL_X = 185;
 const CONNECTION_PILL_WIDTH = 310;
 const CONNECTION_PILL_HEIGHT = 32;
 
-const SYMBOL_BADGE_X = 665;
+const SYMBOL_BADGE_X = 675;
 const SYMBOL_BADGE_WIDTH = 190;
 const SYMBOL_BADGE_HEIGHT = 32;
 
@@ -67,8 +69,9 @@ export class BoardHud {
       fontFamily: 'Arial, Helvetica, sans-serif',
       fontSize: '12px',
       fontStyle: 'bold',
-      color: '#e74c3c'
-    }).setOrigin(0, 0.5);
+      color: '#e74c3c',
+      resolution: RENDER_RESOLUTION
+    }).setOrigin(0, 0.5).setVertexRoundMode('fullAuto');
 
     this._connectionContainer = scene.add.container(CONNECTION_PILL_X, TOP_BAR_Y, [
       pillBg,
@@ -82,29 +85,32 @@ export class BoardHud {
       fontFamily: 'Arial, Helvetica, sans-serif',
       fontSize: '13px',
       fontStyle: 'bold',
-      color: '#dfe6e9'
-    }).setOrigin(0.5, 0.5);
+      color: '#dfe6e9',
+      resolution: RENDER_RESOLUTION
+    }).setOrigin(0.5, 0.5).setVertexRoundMode('fullAuto');
 
     this._symbolContainer = scene.add.container(SYMBOL_BADGE_X, TOP_BAR_Y, [
       badgeBg,
       this._symbolText
     ]);
 
-    this._statusText = scene.add.text(400, STATUS_BANNER_Y, 'Connecting to server...', {
+    this._statusText = scene.add.text(CENTER_X, STATUS_BANNER_Y, 'Connecting to server...', {
       fontFamily: 'Arial, Helvetica, sans-serif',
       fontSize: '22px',
       fontStyle: 'bold',
       color: '#ffffff',
-      align: 'center'
-    }).setOrigin(0.5, 0.5);
+      align: 'center',
+      resolution: RENDER_RESOLUTION
+    }).setOrigin(0.5, 0.5).setVertexRoundMode('fullAuto');
 
-    this._feedbackText = scene.add.text(400, FEEDBACK_BANNER_Y, '', {
+    this._feedbackText = scene.add.text(CENTER_X, FEEDBACK_BANNER_Y, '', {
       fontFamily: 'Arial, Helvetica, sans-serif',
       fontSize: '14px',
       fontStyle: 'normal',
       color: '#ff7675',
-      align: 'center'
-    }).setOrigin(0.5, 0.5);
+      align: 'center',
+      resolution: RENDER_RESOLUTION
+    }).setOrigin(0.5, 0.5).setVertexRoundMode('fullAuto');
 
     this._rematchBg = scene.add.rectangle(0, 0, REMATCH_BUTTON_WIDTH, ACTION_BUTTON_HEIGHT, 0x4834d4)
       .setStrokeStyle(2, 0x6c5ce7);
@@ -112,10 +118,11 @@ export class BoardHud {
       fontFamily: 'Arial, Helvetica, sans-serif',
       fontSize: '15px',
       fontStyle: 'bold',
-      color: '#ffffff'
-    }).setOrigin(0.5, 0.5);
+      color: '#ffffff',
+      resolution: RENDER_RESOLUTION
+    }).setOrigin(0.5, 0.5).setVertexRoundMode('fullAuto');
 
-    this._rematchContainer = scene.add.container(400, ACTION_BUTTON_Y, [
+    this._rematchContainer = scene.add.container(CENTER_X, ACTION_BUTTON_Y, [
       this._rematchBg,
       this._rematchText
     ]);
@@ -149,10 +156,11 @@ export class BoardHud {
       fontFamily: 'Arial, Helvetica, sans-serif',
       fontSize: '15px',
       fontStyle: 'bold',
-      color: '#ffffff'
-    }).setOrigin(0.5, 0.5);
+      color: '#ffffff',
+      resolution: RENDER_RESOLUTION
+    }).setOrigin(0.5, 0.5).setVertexRoundMode('fullAuto');
 
-    this._retryContainer = scene.add.container(400, ACTION_BUTTON_Y, [
+    this._retryContainer = scene.add.container(CENTER_X, ACTION_BUTTON_Y, [
       this._retryBg,
       this._retryText
     ]);

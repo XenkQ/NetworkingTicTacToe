@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { LOGICAL_HEIGHT, LOGICAL_WIDTH, RENDER_RESOLUTION } from '../config/displayConfig';
 import type {
   ConnectionStateType,
   GameStateDto,
@@ -13,7 +14,7 @@ import { BoardHud } from '../ui/BoardHud';
 
 const CELL_SIZE = 110;
 const CELL_GAP = 12;
-const GRID_CENTER_X = 400;
+const GRID_CENTER_X = LOGICAL_WIDTH / 2;
 const GRID_CENTER_Y = 310;
 
 const COL_CENTERS = [
@@ -74,6 +75,10 @@ export class BoardScene extends Phaser.Scene {
   }
 
   public create(): void {
+    this.cameras.main.setZoom(RENDER_RESOLUTION);
+    this.cameras.main.centerOn(LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2);
+    this.cameras.main.setRoundPixels(true);
+
     this.createGrid();
 
     this._hud = new BoardHud(this, {
@@ -251,9 +256,11 @@ export class BoardScene extends Phaser.Scene {
       fontFamily: 'Arial, Helvetica, sans-serif',
       fontSize: '68px',
       fontStyle: 'bold',
-      color
+      color,
+      resolution: RENDER_RESOLUTION
     });
     text.setOrigin(0.5, 0.5);
+    text.setVertexRoundMode('fullAuto');
     text.setScale(0);
 
     this.tweens.add({
