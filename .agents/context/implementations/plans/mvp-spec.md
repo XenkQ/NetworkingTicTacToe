@@ -308,10 +308,10 @@ All C# DTOs are immutable positional `record` types in server/DTOs/GameContracts
   - Verification: `dotnet build` & `dotnet test`
 
 ### Phase 3: Client Scaffolding & SignalR Network Service
-- [ ] **Step 3.1:** Scaffold Vite + TypeScript (`strict: true`) + Phaser 4 + `@microsoft/signalr` project in client/ and configure Vite build output / dev proxy.
+- [x] **Step 3.1:** Scaffold Vite + TypeScript (`strict: true`) + Phaser 4 + `@microsoft/signalr` project in client/ and configure Vite build output / dev proxy.
   - Files: client/package.json, client/tsconfig.json, client/vite.config.ts, client/index.html
   - Verification: `npm --prefix client install` & `npm --prefix client run build`
-- [ ] **Step 3.2:** Implement synchronized TypeScript DTO interfaces in client/src/types/GameContracts.ts and `GameNetworkService` in client/src/services/GameNetworkService.ts.
+- [x] **Step 3.2:** Implement synchronized TypeScript DTO interfaces in client/src/types/GameContracts.ts and `GameNetworkService` in client/src/services/GameNetworkService.ts.
   - Files: client/src/types/GameContracts.ts, client/src/services/GameNetworkService.ts
   - Verification: `npm --prefix client run build`
 
