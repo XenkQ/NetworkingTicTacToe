@@ -44,18 +44,10 @@
 
 ### Server Domain Models (server/Domain/)
 
-All domain types use file-scoped namespaces (`namespace NetworkingTicTacToe.Server.Domain;`), contain zero transport dependencies, and enforce deterministic state transitions:
+All domain types use file-scoped namespaces, contain zero transport dependencies, enforce deterministic state transitions, and are partitioned into descriptive domain subdirectories:
 
-1. **Enums & Value Types:**
-   - server/Domain/PlayerSymbol.cs:
-     ```csharp
-     public enum PlayerSymbol
-     {
-         X = 1,
-         O = 2
-     }
-     ```
-   - server/Domain/CellState.cs:
+1. **Board Subdomain (server/Domain/Board/ — namespace `NetworkingTicTacToe.Server.Domain.Board`):**
+   - server/Domain/Board/CellState.cs:
      ```csharp
      public enum CellState
      {
@@ -64,7 +56,40 @@ All domain types use file-scoped namespaces (`namespace NetworkingTicTacToe.Serv
          O = 2
      }
      ```
-   - server/Domain/GameStatus.cs:
+   - server/Domain/Board/BoardCoordinate.cs:
+     ```csharp
+     public readonly record struct BoardCoordinate(int Row, int Col);
+     ```
+   - server/Domain/Board/WinningLine.cs:
+     ```csharp
+     public sealed record WinningLine(
+         BoardCoordinate First,
+         BoardCoordinate Second,
+         BoardCoordinate Third);
+     ```
+   - server/Domain/Board/Board.cs:
+     - Constant `public const int BOARD_SIZE = 3;` and `public const int TOTAL_CELLS = 9;`.
+     - Encapsulates private `readonly CellState[,] _cells = new CellState[BOARD_SIZE, BOARD_SIZE];` and `private int _occupiedCount;`.
+     - Public methods (using standard `{}` block syntax):
+       - `public bool IsWithinBounds(int row, int col)`
+       - `public CellState GetCell(int row, int col)`
+       - `public bool IsCellEmpty(int row, int col)`
+       - `public void PlaceSymbol(int row, int col, PlayerSymbol symbol)`
+       - `public void Reset()`
+       - `public WinningLine? EvaluateWin(PlayerSymbol symbol)` — deterministically checks all 3 rows, 3 columns, and 2 diagonals.
+       - `public bool IsFull()` — returns `_occupiedCount >= TOTAL_CELLS`.
+       - `public string[][] ToJaggedArray()` — exports 3x3 strings (`"Empty"`, `"X"`, `"O"`) for DTO serialization.
+
+2. **Match Subdomain (server/Domain/Match/ — namespace `NetworkingTicTacToe.Server.Domain.Match`):**
+   - server/Domain/Match/PlayerSymbol.cs:
+     ```csharp
+     public enum PlayerSymbol
+     {
+         X = 1,
+         O = 2
+     }
+     ```
+   - server/Domain/Match/GameStatus.cs:
      ```csharp
      public enum GameStatus
      {
@@ -75,7 +100,7 @@ All domain types use file-scoped namespaces (`namespace NetworkingTicTacToe.Serv
          AbortedByDisconnect = 4
      }
      ```
-   - server/Domain/MoveErrorCode.cs:
+   - server/Domain/Match/MoveErrorCode.cs:
      ```csharp
      public enum MoveErrorCode
      {
@@ -87,18 +112,20 @@ All domain types use file-scoped namespaces (`namespace NetworkingTicTacToe.Serv
          CellOccupied = 5
      }
      ```
-   - server/Domain/BoardCoordinate.cs:
-     ```csharp
-     public readonly record struct BoardCoordinate(int Row, int Col);
-     ```
-   - server/Domain/WinningLine.cs:
-     ```csharp
-     public sealed record WinningLine(
-         BoardCoordinate First,
-         BoardCoordinate Second,
-         BoardCoordinate Third);
-     ```
-   - server/Domain/MoveAttemptResult.cs:
+   - server/Domain/Match/GameMatch.cs:
+     - Owns the lifecycle of the single match session:
+       - `public Board Board { get; }`
+       - `public string? PlayerXConnectionId { get; private set; }`
+       - `public string? PlayerOConnectionId { get; private set; }`
+       - `public PlayerSymbol? CurrentTurn { get; private set; }`
+       - `public GameStatus Status { get; private set; }`
+       - `public PlayerSymbol? Winner { get; private set; }`
+       - `public WinningLine? WinningLine { get; private set; }`
+       - `public bool HasPlayerXAcceptedRematch { get; private set; }`
+       - `public bool HasPlayerOAcceptedRematch { get; private set; }`
+
+3. **Results Subdomain (server/Domain/Results/ — namespace `NetworkingTicTacToe.Server.Domain.Results`):**
+   - server/Domain/Results/MoveAttemptResult.cs:
      ```csharp
      public sealed record MoveAttemptResult(
          bool IsValid,
@@ -110,7 +137,7 @@ All domain types use file-scoped namespaces (`namespace NetworkingTicTacToe.Serv
          PlayerSymbol? Winner,
          WinningLine? WinningLine);
      ```
-   - server/Domain/JoinMatchResult.cs:
+   - server/Domain/Results/JoinMatchResult.cs:
      ```csharp
      public sealed record JoinMatchResult(
          bool IsJoined,
@@ -118,45 +145,20 @@ All domain types use file-scoped namespaces (`namespace NetworkingTicTacToe.Serv
          string? RejectionReason,
          bool DidMatchStart);
      ```
-   - server/Domain/RematchVoteResult.cs:
+   - server/Domain/Results/RematchVoteResult.cs:
      ```csharp
      public sealed record RematchVoteResult(
          bool IsAccepted,
          string? ErrorMessage,
          bool DidRematchStart);
      ```
-   - server/Domain/DisconnectResult.cs:
+   - server/Domain/Results/DisconnectResult.cs:
      ```csharp
      public sealed record DisconnectResult(
          bool WasParticipant,
          string? RemainingPlayerConnectionId,
          PlayerSymbol? RemainingPlayerNewSymbol);
      ```
-
-2. **Board Class (server/Domain/Board.cs):**
-   - Constant `public const int BOARD_SIZE = 3;` and `public const int TOTAL_CELLS = 9;`.
-   - Encapsulates a private `readonly CellState[,] _cells = new CellState[BOARD_SIZE, BOARD_SIZE];` and `private int _occupiedCount;`.
-   - Public methods (using standard `{}` block syntax):
-     - `public bool IsWithinBounds(int row, int col)`
-     - `public CellState GetCell(int row, int col)`
-     - `public bool IsCellEmpty(int row, int col)`
-     - `public void PlaceSymbol(int row, int col, PlayerSymbol symbol)`
-     - `public void Reset()`
-     - `public WinningLine? EvaluateWin(PlayerSymbol symbol)` — deterministically checks all 3 rows, 3 columns, and 2 diagonals.
-     - `public bool IsFull()` — returns `_occupiedCount >= TOTAL_CELLS`.
-     - `public string[][] ToJaggedArray()` — exports 3x3 strings (`"Empty"`, `"X"`, `"O"`) for DTO serialization.
-
-3. **GameMatch Class (server/Domain/GameMatch.cs):**
-   - Owns the lifecycle of the single match session:
-     - `public Board Board { get; }`
-     - `public string? PlayerXConnectionId { get; private set; }`
-     - `public string? PlayerOConnectionId { get; private set; }`
-     - `public PlayerSymbol? CurrentTurn { get; private set; }`
-     - `public GameStatus Status { get; private set; }`
-     - `public PlayerSymbol? Winner { get; private set; }`
-     - `public WinningLine? WinningLine { get; private set; }`
-     - `public bool HasPlayerXAcceptedRematch { get; private set; }`
-     - `public bool HasPlayerOAcceptedRematch { get; private set; }`
    - Key domain operations:
      - `public JoinMatchResult TryAddPlayer(string connectionId)`:
        - If caller is already `PlayerXConnectionId` or `PlayerOConnectionId`, returns their existing symbol idempotently.
@@ -287,14 +289,14 @@ All C# DTOs are immutable positional `record` types in server/DTOs/GameContracts
 ## 7. Implementation Plan (Phases & Steps)
 
 ### Phase 1: Solution Scaffolding, Pure Domain Model & xUnit Tests
-- [ ] **Step 1.1:** Create .NET 10 solution (`NetworkingTicTacToe.sln`), server project (server/NetworkingTicTacToe.Server.csproj), and xUnit test project (tests/NetworkingTicTacToe.Tests.csproj).
+- [x] **Step 1.1:** Create .NET 10 solution (`NetworkingTicTacToe.sln`), server project (server/NetworkingTicTacToe.Server.csproj), and xUnit test project (tests/NetworkingTicTacToe.Tests.csproj).
   - Files: NetworkingTicTacToe.sln, server/NetworkingTicTacToe.Server.csproj, tests/NetworkingTicTacToe.Tests.csproj
   - Verification: `dotnet build`
-- [ ] **Step 1.2:** Implement pure domain models in server/Domain/ (enums, value records, `Board`, and `GameMatch`).
-  - Files: server/Domain/PlayerSymbol.cs, server/Domain/CellState.cs, server/Domain/GameStatus.cs, server/Domain/MoveErrorCode.cs, server/Domain/BoardCoordinate.cs, server/Domain/WinningLine.cs, server/Domain/MoveAttemptResult.cs, server/Domain/JoinMatchResult.cs, server/Domain/RematchVoteResult.cs, server/Domain/DisconnectResult.cs, server/Domain/Board.cs, server/Domain/GameMatch.cs
+- [x] **Step 1.2:** Implement pure domain models partitioned into descriptive subdomains under server/Domain/ (`Board/`, `Match/`, `Results/`).
+  - Files: server/Domain/Board/Board.cs, server/Domain/Board/BoardCoordinate.cs, server/Domain/Board/CellState.cs, server/Domain/Board/WinningLine.cs, server/Domain/Match/GameMatch.cs, server/Domain/Match/GameStatus.cs, server/Domain/Match/MoveErrorCode.cs, server/Domain/Match/PlayerSymbol.cs, server/Domain/Results/DisconnectResult.cs, server/Domain/Results/JoinMatchResult.cs, server/Domain/Results/MoveAttemptResult.cs, server/Domain/Results/RematchVoteResult.cs
   - Verification: `dotnet build`
-- [ ] **Step 1.3:** Implement comprehensive xUnit tests for `Board` and `GameMatch` covering player joining, 3rd player rejection, turn order, move validation (out-of-turn, occupied cell, out-of-bounds, post-game, non-participant), all 8 winning lines (3 rows, 3 cols, 2 diagonals), full-board draws, mutual rematch with symbol swap, and disconnect recovery.
-  - Files: tests/Domain/BoardTests.cs, tests/Domain/GameMatchTests.cs
+- [x] **Step 1.3:** Implement comprehensive xUnit tests mirroring domain structure under tests/Domain/ (`Board/`, `Match/`) covering player joining, 3rd player rejection, turn order, move validation (out-of-turn, occupied cell, out-of-bounds, post-game, non-participant), all 8 winning lines (3 rows, 3 cols, 2 diagonals), full-board draws, mutual rematch with symbol swap, and disconnect recovery.
+  - Files: tests/Domain/Board/BoardTests.cs, tests/Domain/Match/GameMatchTests.cs
   - Verification: `dotnet test`
 
 ### Phase 2: Server DTOs, Session Service, SignalR Hub & LAN Hosting
