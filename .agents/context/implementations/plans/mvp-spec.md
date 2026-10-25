@@ -321,7 +321,7 @@ All C# DTOs are immutable positional `record` types in server/DTOs/GameContracts
   - Verification: `npm --prefix client run build`
 
 ### Phase 5: Static Asset Hosting Integration & Pre-Commit Verification Gate
-- [ ] **Step 5.1:** Verify ASP.NET Core serves the built Phaser bundle from client/dist/ (or server/wwwroot/) and run the full pre-commit verification gate (`dotnet build`, `dotnet test`, `npm --prefix client run build`, and .agents/scripts/check-architecture.ps1).
+- [x] **Step 5.1:** Verify ASP.NET Core serves the built Phaser bundle from client/dist/ (or server/wwwroot/) and run the full pre-commit verification gate (`dotnet build`, `dotnet test`, `npm --prefix client run build`, and .agents/scripts/check-architecture.ps1).
   - Files: server/Program.cs, .agents/context/implementations/summaries/mvp-summary.md
   - Verification: `dotnet test`, `npm --prefix client run build`, `powershell -ExecutionPolicy Bypass -File .agents/scripts/check-architecture.ps1`
 
@@ -336,9 +336,9 @@ All C# DTOs are immutable positional `record` types in server/DTOs/GameContracts
 - **Nit Risks:** All C# methods strictly use `{}` block syntax (`CS-ARCH003`), private fields use `_camelCase`, constants use `UPPER_SNAKE_CASE`, and TypeScript uses zero `any` (`TS-ARCH001`).
 
 ### Verification & Acceptance Criteria
-- [ ] **Scenario 1 (LAN Two-Player Match):** Two players on separate browser clients connect over LAN and complete a match with both 3x3 boards staying 100% synchronized.
-- [ ] **Scenario 2 (Illegal Move Rejection):** Moves attempted out of turn, on an occupied cell, out of bounds (`< 0` or `>= 3`), by a non-participant, or after game completion are rejected without mutating board state.
-- [ ] **Scenario 3 (Win & Draw Detection):** Server detects all 8 winning configurations (3 rows, 3 columns, 2 diagonals) and full-board draws, immediately blocking subsequent moves.
-- [ ] **Scenario 4 (Disconnect Handling & Return):** Closing a client or losing network connection aborts the active match, displays a notification on the remaining client, retains the remaining client as waiting Player `X`, and starts a new match when a second player returns/connects.
-- [ ] **Scenario 5 (Mutual Rematch & Third-Client Exclusion):** Mutual rematch acceptance swaps symbols (`X <-> O`) and creates a fresh empty 3x3 board with `X` moving first; a third connecting client receives a busy/full message and cannot join the active session.
-- [ ] **Automated Gate:** `dotnet build` (0 warnings/errors), `dotnet test` (all xUnit tests pass), `npm --prefix client run build` (0 `tsc`/Vite errors), and `powershell -ExecutionPolicy Bypass -File .agents/scripts/check-architecture.ps1` (0 violations).
+- [x] **Scenario 1 (LAN Two-Player Match):** Two players on separate browser clients connect over LAN and complete a match with both 3x3 boards staying 100% synchronized.
+- [x] **Scenario 2 (Illegal Move Rejection):** Moves attempted out of turn, on an occupied cell, out of bounds (`< 0` or `>= 3`), by a non-participant, or after game completion are rejected without mutating board state.
+- [x] **Scenario 3 (Win & Draw Detection):** Server detects all 8 winning configurations (3 rows, 3 columns, 2 diagonals) and full-board draws, immediately blocking subsequent moves.
+- [x] **Scenario 4 (Disconnect Handling & Return):** Closing a client or losing network connection aborts the active match, displays a notification on the remaining client, retains the remaining client as waiting Player `X`, and starts a new match when a second player returns/connects.
+- [x] **Scenario 5 (Mutual Rematch & Third-Client Exclusion):** Mutual rematch acceptance swaps symbols (`X <-> O`) and creates a fresh empty 3x3 board with `X` moving first; a third connecting client receives a busy/full message and cannot join the active session.
+- [x] **Automated Gate:** `dotnet build` (0 warnings/errors), `dotnet test` (all xUnit tests pass), `npm --prefix client run build` (0 `tsc`/Vite errors), and `powershell -ExecutionPolicy Bypass -File .agents/scripts/check-architecture.ps1` (0 violations).

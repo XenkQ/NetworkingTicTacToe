@@ -28,6 +28,8 @@ string clientDistPath = Path.Combine(builder.Environment.ContentRootPath, "..", 
 string clientDistFullPath = Path.GetFullPath(clientDistPath);
 string wwwrootPath = Path.Combine(builder.Environment.ContentRootPath, "wwwroot");
 
+bool hasClientFallbackFile = false;
+
 if (Directory.Exists(clientDistFullPath))
 {
     PhysicalFileProvider distProvider = new(clientDistFullPath);
@@ -37,6 +39,7 @@ if (Directory.Exists(clientDistFullPath))
     if (File.Exists(Path.Combine(clientDistFullPath, "index.html")))
     {
         app.MapFallbackToFile("index.html", new StaticFileOptions { FileProvider = distProvider });
+        hasClientFallbackFile = true;
     }
 }
 else if (Directory.Exists(wwwrootPath))
@@ -47,6 +50,7 @@ else if (Directory.Exists(wwwrootPath))
     if (File.Exists(Path.Combine(wwwrootPath, "index.html")))
     {
         app.MapFallbackToFile("index.html");
+        hasClientFallbackFile = true;
     }
 }
 
@@ -55,10 +59,13 @@ app.MapGet("/health", () =>
     return Results.Ok(new { status = "healthy", service = "NetworkingTicTacToe.Server" });
 });
 
-app.MapFallback(() =>
+if (!hasClientFallbackFile)
 {
-    return Results.Text("Networking Tic-Tac-Toe Server is running. Client assets not yet built.", "text/plain");
-});
+    app.MapFallback(() =>
+    {
+        return Results.Text("Networking Tic-Tac-Toe Server is running. Client assets not yet built.", "text/plain");
+    });
+}
 
 app.MapHub<GameHub>("/hubs/game");
 
