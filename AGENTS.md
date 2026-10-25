@@ -57,7 +57,7 @@ When behavior depends on Phaser 4, TypeScript, Vite, ASP.NET Core, SignalR, or x
   - Keep pure game rules and board state in `server/Domain/` free of SignalR or HTTP dependencies so they are directly testable via xUnit.
   - Keep SignalR transport logic in `server/Hubs/` and session coordination in `server/Services/`.
   - Keep client SignalR connection management in `client/src/services/` decoupled from Phaser rendering scenes in `client/src/scenes/`.
-- **Contract Alignment**: Keep C# DTOs/records in `server/DTOs/` strictly synchronized with TypeScript interfaces in `client/src/types/` (or `client/src/models/`).
+- **Contract Alignment & Modular DTOs**: Keep C# DTOs/records in `server/DTOs/` strictly synchronized with TypeScript interfaces in `client/src/types/` (or `client/src/models/`). Split DTOs into modular files—grouping tightly related request/response or nested snapshot types and placing standalone DTOs in separate files rather than a single monolithic file.
 - **No Static Mutable State**: Do not introduce uncontrolled static mutable state; manage multi-request or active-session state through thread-safe registered services.
 - **Clean Lifecycle Management**: Unregister SignalR listeners and Phaser input/scene events when scenes shut down or connections close.
 

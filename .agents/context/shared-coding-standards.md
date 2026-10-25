@@ -42,8 +42,13 @@ When a file contains legacy style, prefer incremental migration in touched areas
 ## 3) Client-Server Contract Alignment
 
 - Keep C# DTO records in server/DTOs/ strictly synchronized with TypeScript interfaces in client/src/types/ (or client/src/models/).
+- **Modular DTO File Organization (No Monolithic Contract Files)**:
+  - Never dump all DTOs into a single monolithic file (e.g., avoid `GameContracts`).
+  - Group closely related DTOs by RPC flow or parent-child composition into descriptively named plural files (e.g., server/DTOs/GameStateDtos.cs with `GameStateDto`, `WinningLineDto`, and `BoardCellCoordinateDto`; server/DTOs/MoveDtos.cs with `MakeMoveRequestDto` and `MoveResultDto`).
+  - Place standalone DTOs that do not belong to a multi-type group into their own dedicated file named after the DTO (e.g., server/DTOs/JoinGameResponseDto.cs, server/DTOs/PlayerAssignmentDto.cs, server/DTOs/RematchResponseDto.cs).
+  - Mirror the exact same modular file grouping across server/DTOs/ and client/src/types/, keeping shared frontend union/primitive types in a dedicated file (client/src/types/GameDomainTypes.ts) and re-exporting via client/src/types/index.ts.
 - Account for ASP.NET Core SignalR's default camelCase JSON serialization:
-  - C# positional record properties use `PascalCase` (e.g., `public sealed record MakeMoveRequest(int Row, int Col);`).
+  - C# positional record properties use `PascalCase` (e.g., `public sealed record MakeMoveRequestDto(int Row, int Col);`).
   - TypeScript DTO interface properties use `camelCase` matching the serialized JSON payload (e.g., `row: number; col: number;`).
 - Ensure property names, data types, enum representations, and nullability match across both stacks whenever modifying network payloads or Hub RPC signatures.
 
@@ -51,13 +56,13 @@ When a file contains legacy style, prefer incremental migration in touched areas
 
 ## 4) File Organization & Interface Colocation
 
-### One Primary Runtime Type Per File
+### One Primary Runtime Type Per File & Modular DTOs
 - Keep each file focused on one primary class, service, scene, or component.
-- Supporting small enums, DTO records, or narrow interface contracts may live in the same file when tightly related to that primary type.
+- Supporting small enums, nested DTO records, or narrow interface contracts may live in the same file only when tightly coupled to that primary type or RPC operation (such as a request/response pair or nested snapshot coordinates); standalone DTOs must live in their own file.
 
 ### Interface Colocation
 - In C# server code, define a narrow interface and its primary implementation in the same file (with the interface placed above the class) whenever the interface is owned and consumed primarily for dependency injection of that single implementation.
-- Shared contracts consumed across multiple unrelated modules or layers may live in dedicated contract or DTO files.
+- Shared contracts consumed across multiple unrelated modules or layers must live in modular, domain-named DTO or contract files rather than a single catch-all file.
 
 ---
 

@@ -20,9 +20,9 @@ Apply these rules to all C# files in:
 
 - **File-Scoped Namespaces**: Use file-scoped namespaces in all C# files (`namespace NetworkingTicTacToe.Server.Domain;`).
 - **Nullable Reference Types**: Enable and respect nullable reference types (`<Nullable>enable</Nullable>`). Avoid null-forgiving operators (`!`) in production code unless structurally guaranteed and justified.
-- **Immutable DTO Records**: Use immutable `record` types for network DTOs and value payloads (`public sealed record MakeMoveRequest(int Row, int Col);`).
+- **Immutable DTO Records & Modular Files**: Use immutable `record` types for network DTOs and value payloads (`public sealed record MakeMoveRequestDto(int Row, int Col);`). Organize server/DTOs/ into modular files: group tightly coupled request/response pairs or parent-child snapshot records into descriptive plural files (e.g., server/DTOs/MoveDtos.cs, server/DTOs/GameStateDtos.cs) and place standalone DTOs in individual files named after the type (e.g., server/DTOs/JoinGameResponseDto.cs). Never combine unrelated DTOs into a single monolithic file.
 - **LINQ Usage**: Standard `System.Linq` is **permitted and encouraged** on the server and in xUnit tests for readable collection queries, board state evaluation, and assertions.
-- **One Primary Type Per File**: Keep each file focused on one primary class, service, hub, or test fixture. Supporting small enums, DTO records, or narrow interfaces may live in the same file when tightly related to that primary type.
+- **One Primary Type Per File**: Keep each file focused on one primary class, service, hub, standalone DTO, or test fixture. Supporting small enums, nested DTO records, or narrow interfaces may live in the same file only when tightly related to that primary type.
 - **Interface Colocation**: Define a narrow interface and its primary implementation in the same file (with the interface placed above the class) whenever the interface is owned and consumed primarily for dependency injection of that single implementation. Shared contracts consumed across multiple unrelated modules or layers may live in dedicated contract/DTO files.
 
 ---
