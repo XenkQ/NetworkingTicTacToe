@@ -300,10 +300,10 @@ All C# DTOs are immutable positional `record` types in server/DTOs/GameContracts
   - Verification: `dotnet test`
 
 ### Phase 2: Server DTOs, Session Service, SignalR Hub & LAN Hosting
-- [ ] **Step 2.1:** Create immutable SignalR DTO records and thread-safe `GameSessionService` with colocated `IGameSessionService`.
+- [x] **Step 2.1:** Create immutable SignalR DTO records and thread-safe `GameSessionService` with colocated `IGameSessionService`.
   - Files: server/DTOs/GameContracts.cs, server/Services/GameSessionService.cs
   - Verification: `dotnet build`
-- [ ] **Step 2.2:** Implement `GameHub` (`Hub<IGameClient>`) and wire DI, Kestrel LAN configuration, and static asset hosting in server/Program.cs, plus xUnit service concurrency/flow tests.
+- [x] **Step 2.2:** Implement `GameHub` (`Hub<IGameClient>`) and wire DI, Kestrel LAN configuration, and static asset hosting in server/Program.cs, plus xUnit service concurrency/flow tests.
   - Files: server/Hubs/GameHub.cs, server/Program.cs, server/Properties/launchSettings.json, tests/Services/GameSessionServiceTests.cs
   - Verification: `dotnet build` & `dotnet test`
 
