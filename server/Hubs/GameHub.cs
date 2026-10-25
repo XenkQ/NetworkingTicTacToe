@@ -94,19 +94,26 @@ public sealed class GameHub : Hub<IGameClient>
                 result.NewPlayerXConnectionId,
                 result.NewPlayerOConnectionId);
 
+            List<Task> assignmentTasks = new(2);
+
             if (result.NewPlayerXConnectionId is not null && result.PlayerXAssignment is not null)
             {
-                await Clients.Client(result.NewPlayerXConnectionId).OnPlayerAssignmentChanged(result.PlayerXAssignment);
+                assignmentTasks.Add(Clients.Client(result.NewPlayerXConnectionId).OnPlayerAssignmentChanged(result.PlayerXAssignment));
             }
 
             if (result.NewPlayerOConnectionId is not null && result.PlayerOAssignment is not null)
             {
-                await Clients.Client(result.NewPlayerOConnectionId).OnPlayerAssignmentChanged(result.PlayerOAssignment);
+                assignmentTasks.Add(Clients.Client(result.NewPlayerOConnectionId).OnPlayerAssignmentChanged(result.PlayerOAssignment));
+            }
+
+            if (assignmentTasks.Count > 0)
+            {
+                await Task.WhenAll(assignmentTasks);
             }
 
             await Clients.Clients(result.ParticipantConnectionIds).OnGameStateUpdated(result.Response.GameState);
         }
-        else if (result.Response.IsAccepted)
+        else if (result.Response.IsAccepted && result.DidVoteChange)
         {
             _logger.LogInformation(
                 "Rematch accepted by {ConnectionId}. Awaiting second player vote.",
@@ -139,11 +146,6 @@ public sealed class GameHub : Hub<IGameClient>
             if (result.RemainingPlayerAssignment is not null)
             {
                 await Clients.Client(result.RemainingPlayerConnectionId).OnPlayerAssignmentChanged(result.RemainingPlayerAssignment);
-            }
-
-            if (result.GameState is not null)
-            {
-                await Clients.Client(result.RemainingPlayerConnectionId).OnGameStateUpdated(result.GameState);
             }
         }
 

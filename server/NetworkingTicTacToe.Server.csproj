@@ -7,4 +7,13 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
 
+  <Target Name="CopyClientDistToPublishWwwroot" AfterTargets="Publish" Condition="Exists('..\client\dist')">
+    <ItemGroup>
+      <ClientDistAssets Include="..\client\dist\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(ClientDistAssets)"
+          DestinationFiles="@(ClientDistAssets->'$(PublishDir)wwwroot\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+
 </Project>

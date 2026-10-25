@@ -42,6 +42,8 @@ export interface IGameNetworkService {
   offMoveRejected(listener: (rejection: MoveResultDto) => void): void;
   onConnectionStateChanged(listener: (state: ConnectionStateType) => void): () => void;
   offConnectionStateChanged(listener: (state: ConnectionStateType) => void): void;
+  onSessionJoined(listener: (response: JoinGameResponseDto) => void): () => void;
+  offSessionJoined(listener: (response: JoinGameResponseDto) => void): void;
 }
 
 /**
@@ -52,12 +54,14 @@ export class GameNetworkService implements IGameNetworkService {
   private _connectionState: ConnectionStateType = 'Disconnected';
   private _assignedSymbol: PlayerSymbolType | null = null;
   private _latestGameState: GameStateDto | null = null;
+  private _latestAssignmentVersion = 0;
   private _isJoined = false;
 
   private readonly _gameStateListeners = new Set<(state: GameStateDto) => void>();
   private readonly _assignmentListeners = new Set<(assignment: PlayerAssignmentDto) => void>();
   private readonly _rejectionListeners = new Set<(rejection: MoveResultDto) => void>();
   private readonly _connectionStateListeners = new Set<(state: ConnectionStateType) => void>();
+  private readonly _sessionJoinedListeners = new Set<(response: JoinGameResponseDto) => void>();
 
   constructor(hubUrl: string = DEFAULT_HUB_URL) {
     this._connection = new HubConnectionBuilder()
@@ -91,9 +95,16 @@ export class GameNetworkService implements IGameNetworkService {
     const response = await this._connection.invoke<JoinGameResponseDto>('JoinGame');
     this._isJoined = response.isJoined;
     this._assignedSymbol = response.assignedSymbol;
-    this._latestGameState = response.gameState;
+    this._latestAssignmentVersion = response.gameState.stateVersion;
+    this.tryUpdateLatestGameState(response.gameState);
 
-    return response;
+    const effectiveResponse: JoinGameResponseDto = {
+      ...response,
+      gameState: this._latestGameState ?? response.gameState
+    };
+    this.dispatchSessionJoined(effectiveResponse);
+
+    return effectiveResponse;
   }
 
   public async retryJoinAsync(): Promise<JoinGameResponseDto> {
@@ -107,7 +118,7 @@ export class GameNetworkService implements IGameNetworkService {
     const result = await this._connection.invoke<MoveResultDto>('MakeMove', request);
 
     if (result.isAccepted) {
-      this._latestGameState = result.gameState;
+      this.tryUpdateLatestGameState(result.gameState);
     }
 
     return result;
@@ -117,7 +128,7 @@ export class GameNetworkService implements IGameNetworkService {
     await this.ensureConnectedAsync();
 
     const response = await this._connection.invoke<RematchResponseDto>('RequestRematch');
-    this._latestGameState = response.gameState;
+    this.tryUpdateLatestGameState(response.gameState);
 
     return response;
   }
@@ -126,7 +137,9 @@ export class GameNetworkService implements IGameNetworkService {
     await this.ensureConnectedAsync();
 
     const state = await this._connection.invoke<GameStateDto>('GetGameState');
-    this._latestGameState = state;
+    if (this.tryUpdateLatestGameState(state)) {
+      this.dispatchGameStateUpdated(state);
+    }
 
     return state;
   }
@@ -134,6 +147,7 @@ export class GameNetworkService implements IGameNetworkService {
   public async disconnectAsync(): Promise<void> {
     if (this._connection.state !== HubConnectionState.Disconnected) {
       await this._connection.stop();
+      this.resetSessionState();
       this.setConnectionState('Disconnected');
     }
   }
@@ -182,16 +196,38 @@ export class GameNetworkService implements IGameNetworkService {
     this._connectionStateListeners.delete(listener);
   }
 
+  public onSessionJoined(listener: (response: JoinGameResponseDto) => void): () => void {
+    this._sessionJoinedListeners.add(listener);
+    return () => {
+      this.offSessionJoined(listener);
+    };
+  }
+
+  public offSessionJoined(listener: (response: JoinGameResponseDto) => void): void {
+    this._sessionJoinedListeners.delete(listener);
+  }
+
   private registerSignalREventHandlers(): void {
     this._connection.on('OnGameStateUpdated', (gameState: GameStateDto) => {
-      this._latestGameState = gameState;
-      this.dispatchGameStateUpdated(gameState);
+      if (this.tryUpdateLatestGameState(gameState)) {
+        this.dispatchGameStateUpdated(gameState);
+      }
     });
 
     this._connection.on('OnPlayerAssignmentChanged', (assignment: PlayerAssignmentDto) => {
+      if (assignment.gameState.stateVersion < this._latestAssignmentVersion) {
+        return;
+      }
+
+      this._latestAssignmentVersion = assignment.gameState.stateVersion;
       this._assignedSymbol = assignment.assignedSymbol;
-      this._latestGameState = assignment.gameState;
-      this.dispatchPlayerAssignmentChanged(assignment);
+      this.tryUpdateLatestGameState(assignment.gameState);
+
+      const effectiveState = this._latestGameState ?? assignment.gameState;
+      this.dispatchPlayerAssignmentChanged({
+        assignedSymbol: assignment.assignedSymbol,
+        gameState: effectiveState
+      });
     });
 
     this._connection.on('OnMoveRejected', (rejection: MoveResultDto) => {
@@ -199,22 +235,47 @@ export class GameNetworkService implements IGameNetworkService {
     });
 
     this._connection.onreconnecting((_error?: Error) => {
+      this.resetSessionState();
       this.setConnectionState('Reconnecting');
     });
 
     this._connection.onreconnected((_connectionId?: string) => {
       this.setConnectionState('Connected');
-      this.syncStateAfterReconnect();
+      this.rejoinAfterReconnect();
     });
 
     this._connection.onclose((_error?: Error) => {
+      this.resetSessionState();
       this.setConnectionState('Disconnected');
     });
+  }
+
+  private resetSessionState(): void {
+    this._isJoined = false;
+    this._assignedSymbol = null;
+    this._latestGameState = null;
+    this._latestAssignmentVersion = 0;
+  }
+
+  private tryUpdateLatestGameState(incomingState: GameStateDto): boolean {
+    if (
+      this._latestGameState !== null &&
+      incomingState.stateVersion < this._latestGameState.stateVersion
+    ) {
+      return false;
+    }
+
+    this._latestGameState = incomingState;
+    return true;
   }
 
   private async ensureConnectedAsync(): Promise<void> {
     if (this._connection.state === HubConnectionState.Connected) {
       return;
+    }
+
+    if (this._connection.state === HubConnectionState.Disconnecting) {
+      await this.waitForStateAsync(HubConnectionState.Disconnected);
     }
 
     if (this._connection.state === HubConnectionState.Disconnected) {
@@ -226,7 +287,10 @@ export class GameNetworkService implements IGameNetworkService {
         this.setConnectionState('Disconnected');
         throw error;
       }
-    } else if (this._connection.state === HubConnectionState.Connecting) {
+    } else if (
+      this._connection.state === HubConnectionState.Connecting ||
+      this._connection.state === HubConnectionState.Reconnecting
+    ) {
       await this.waitForStateAsync(HubConnectionState.Connected);
     }
   }
@@ -255,9 +319,11 @@ export class GameNetworkService implements IGameNetworkService {
     }
   }
 
-  private syncStateAfterReconnect(): void {
-    this.getGameStateAsync().catch((error: unknown) => {
-      console.warn('Failed to synchronize game state after reconnection:', error);
+  private rejoinAfterReconnect(): void {
+    this.connectAndJoinAsync().catch((error: unknown) => {
+      this.resetSessionState();
+      console.warn('Failed to re-join game session after reconnection:', error);
+      this.setConnectionState('Disconnected');
     });
   }
 
@@ -297,6 +363,16 @@ export class GameNetworkService implements IGameNetworkService {
         listener(state);
       } catch (error: unknown) {
         console.error('Error executing OnConnectionStateChanged listener:', error);
+      }
+    }
+  }
+
+  private dispatchSessionJoined(response: JoinGameResponseDto): void {
+    for (const listener of this._sessionJoinedListeners) {
+      try {
+        listener(response);
+      } catch (error: unknown) {
+        console.error('Error executing OnSessionJoined listener:', error);
       }
     }
   }

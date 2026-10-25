@@ -31,7 +31,8 @@ public sealed record RematchSessionResult(
     string? NewPlayerOConnectionId,
     PlayerAssignmentDto? PlayerXAssignment,
     PlayerAssignmentDto? PlayerOAssignment,
-    IReadOnlyList<string> ParticipantConnectionIds);
+    IReadOnlyList<string> ParticipantConnectionIds,
+    bool DidVoteChange = true);
 
 /// <summary>
 /// Service result for player disconnect handling.
@@ -67,6 +68,7 @@ public sealed class GameSessionService : IGameSessionService
 {
     private readonly Lock _syncRoot = new();
     private readonly GameMatch _match = new();
+    private long _stateVersion;
 
     public GameSessionService()
     {
@@ -78,7 +80,13 @@ public sealed class GameSessionService : IGameSessionService
 
         lock (_syncRoot)
         {
+            bool wasAlreadyParticipant = _match.IsParticipant(connectionId);
             JoinMatchResult joinResult = _match.TryAddPlayer(connectionId);
+
+            if (joinResult.IsJoined && !wasAlreadyParticipant)
+            {
+                _stateVersion++;
+            }
 
             string statusMessage = !joinResult.IsJoined
                 ? (joinResult.RejectionReason ?? "Game is currently full (2/2 players active).")
@@ -123,6 +131,8 @@ public sealed class GameSessionService : IGameSessionService
                 return new MoveSessionResult(errorResponse, false, GetParticipantConnectionIdsCore());
             }
 
+            _stateVersion++;
+
             string statusMessage = _match.Status switch
             {
                 GameStatus.Won => $"Player {_match.Winner} wins!",
@@ -151,6 +161,10 @@ public sealed class GameSessionService : IGameSessionService
 
         lock (_syncRoot)
         {
+            bool hadAlreadyVoted =
+                (connectionId == _match.PlayerXConnectionId && _match.HasPlayerXAcceptedRematch) ||
+                (connectionId == _match.PlayerOConnectionId && _match.HasPlayerOAcceptedRematch);
+
             RematchVoteResult rematchResult = _match.TryAcceptRematch(connectionId);
 
             if (!rematchResult.IsAccepted)
@@ -169,7 +183,14 @@ public sealed class GameSessionService : IGameSessionService
                     null,
                     null,
                     null,
-                    GetParticipantConnectionIdsCore());
+                    GetParticipantConnectionIdsCore(),
+                    false);
+            }
+
+            bool didVoteChange = !hadAlreadyVoted || rematchResult.DidRematchStart;
+            if (didVoteChange)
+            {
+                _stateVersion++;
             }
 
             if (rematchResult.DidRematchStart)
@@ -192,7 +213,8 @@ public sealed class GameSessionService : IGameSessionService
                     newPlayerO,
                     assignmentX,
                     assignmentO,
-                    GetParticipantConnectionIdsCore());
+                    GetParticipantConnectionIdsCore(),
+                    true);
             }
 
             string waitingMessage = "Rematch requested (1/2 accepted)...";
@@ -206,7 +228,8 @@ public sealed class GameSessionService : IGameSessionService
                 null,
                 null,
                 null,
-                GetParticipantConnectionIdsCore());
+                GetParticipantConnectionIdsCore(),
+                didVoteChange);
         }
     }
 
@@ -222,6 +245,8 @@ public sealed class GameSessionService : IGameSessionService
             {
                 return new DisconnectSessionResult(false, null, null, null);
             }
+
+            _stateVersion++;
 
             if (disconnectResult.RemainingPlayerConnectionId is not null)
             {
@@ -284,6 +309,7 @@ public sealed class GameSessionService : IGameSessionService
         string statusMessage = customStatusMessage ?? ComputeDefaultStatusMessage();
 
         return new GameStateDto(
+            _stateVersion,
             _match.Board.ToJaggedArray(),
             _match.Status.ToString(),
             _match.CurrentTurn?.ToString(),

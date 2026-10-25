@@ -473,4 +473,65 @@ public sealed class GameSessionServiceTests
         GameStateDto state = service.GetCurrentGameState();
         Assert.NotNull(state);
     }
+
+    [Fact]
+    public void StateVersion_IncrementsMonotonically_AcrossStateMutations()
+    {
+        // Arrange
+        GameSessionService service = new();
+
+        // Act & Assert
+        JoinSessionResult joinX = service.JoinSession(PLAYER_X_ID);
+        Assert.Equal(1, joinX.Response.GameState.StateVersion);
+
+        // Idempotent rejoin does not increment state version
+        JoinSessionResult rejoinX = service.JoinSession(PLAYER_X_ID);
+        Assert.Equal(1, rejoinX.Response.GameState.StateVersion);
+
+        JoinSessionResult joinO = service.JoinSession(PLAYER_O_ID);
+        Assert.Equal(2, joinO.Response.GameState.StateVersion);
+
+        // Rejected move does not increment state version
+        MoveSessionResult rejectedMove = service.MakeMove(PLAYER_O_ID, 0, 0);
+        Assert.False(rejectedMove.IsAccepted);
+        Assert.Equal(2, rejectedMove.Response.GameState.StateVersion);
+
+        // Valid move increments state version
+        MoveSessionResult validMove = service.MakeMove(PLAYER_X_ID, 0, 0);
+        Assert.True(validMove.IsAccepted);
+        Assert.Equal(3, validMove.Response.GameState.StateVersion);
+
+        // Disconnect increments state version
+        DisconnectSessionResult disconnect = service.HandleDisconnect(PLAYER_O_ID);
+        Assert.True(disconnect.WasParticipant);
+        Assert.NotNull(disconnect.GameState);
+        Assert.Equal(4, disconnect.GameState.StateVersion);
+    }
+
+    [Fact]
+    public void RequestRematch_DuplicateVoteFromSamePlayer_DoesNotIncrementStateVersion()
+    {
+        // Arrange
+        GameSessionService service = new();
+        service.JoinSession(PLAYER_X_ID);
+        service.JoinSession(PLAYER_O_ID);
+
+        service.MakeMove(PLAYER_X_ID, 0, 0);
+        service.MakeMove(PLAYER_O_ID, 1, 0);
+        service.MakeMove(PLAYER_X_ID, 0, 1);
+        service.MakeMove(PLAYER_O_ID, 1, 1);
+        service.MakeMove(PLAYER_X_ID, 0, 2); // X wins
+
+        // Act
+        RematchSessionResult firstVote = service.RequestRematch(PLAYER_X_ID);
+        long versionAfterFirstVote = firstVote.Response.GameState.StateVersion;
+        RematchSessionResult duplicateVote = service.RequestRematch(PLAYER_X_ID);
+
+        // Assert
+        Assert.True(firstVote.DidVoteChange);
+        Assert.True(duplicateVote.Response.IsAccepted);
+        Assert.False(duplicateVote.DidVoteChange);
+        Assert.False(duplicateVote.DidRematchStart);
+        Assert.Equal(versionAfterFirstVote, duplicateVote.Response.GameState.StateVersion);
+    }
 }

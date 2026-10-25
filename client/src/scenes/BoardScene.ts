@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import type {
   ConnectionStateType,
   GameStateDto,
+  JoinGameResponseDto,
   MoveResultDto,
   PlayerAssignmentDto,
   PlayerSymbolType,
@@ -44,7 +45,9 @@ export class BoardScene extends Phaser.Scene {
   private _winningLineGraphics: Phaser.GameObjects.Graphics | null = null;
 
   private _isMovePending = false;
+  private _isRematchPending = false;
   private _latestState: GameStateDto | null = null;
+  private _latestAssignmentVersion = 0;
   private _localSymbol: PlayerSymbolType | null = null;
   private _isJoined = false;
 
@@ -63,7 +66,9 @@ export class BoardScene extends Phaser.Scene {
     this._cellZones = [];
     this._winningLineGraphics = null;
     this._isMovePending = false;
+    this._isRematchPending = false;
     this._latestState = null;
+    this._latestAssignmentVersion = 0;
     this._localSymbol = null;
     this._isJoined = false;
   }
@@ -96,11 +101,16 @@ export class BoardScene extends Phaser.Scene {
       this.handleConnectionStateChanged(state);
     });
 
+    const unsubSession = this._networkService.onSessionJoined((response: JoinGameResponseDto) => {
+      this.handleSessionJoined(response);
+    });
+
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       unsubState();
       unsubAssign();
       unsubReject();
       unsubConn();
+      unsubSession();
       this.tweens.killAll();
       this.time.removeAllEvents();
       this._hud?.destroy();
@@ -160,8 +170,13 @@ export class BoardScene extends Phaser.Scene {
       return;
     }
 
+    if (this._networkService.connectionState !== 'Connected') {
+      this._hud?.showFeedback('Not connected to server. Please wait or click Retry Join.', true);
+      return;
+    }
+
     if (!this._isJoined || this._localSymbol === null) {
-      this._hud?.showFeedback('You are spectating. Only active players can make moves.', true);
+      this._hud?.showFeedback('Cannot make moves: Game is currently full (2/2 players active).', true);
       return;
     }
 
@@ -184,11 +199,8 @@ export class BoardScene extends Phaser.Scene {
     this.highlightCell(row, col, false);
 
     this._networkService.makeMoveAsync(row, col)
-      .then((result) => {
+      .then(() => {
         this._isMovePending = false;
-        if (!result.isAccepted) {
-          this._hud?.showFeedback(result.errorMessage ?? 'Move was rejected', true);
-        }
       })
       .catch((error: unknown) => {
         this._isMovePending = false;
@@ -336,15 +348,59 @@ export class BoardScene extends Phaser.Scene {
     }
   }
 
+  private isNewerOrEqualState(incoming: GameStateDto): boolean {
+    if (this._latestState === null) {
+      return true;
+    }
+
+    return incoming.stateVersion >= this._latestState.stateVersion;
+  }
+
+  private handleSessionJoined(response: JoinGameResponseDto): void {
+    this._isJoined = response.isJoined;
+    this._localSymbol = response.assignedSymbol;
+    this._latestAssignmentVersion = response.gameState.stateVersion;
+
+    if (this.isNewerOrEqualState(response.gameState)) {
+      this._latestState = response.gameState;
+    }
+
+    if (this._latestState !== null) {
+      this.applyGameState(this._latestState);
+    }
+
+    if (!response.isJoined && response.rejectionReason) {
+      this._hud?.showFeedback(response.rejectionReason, true);
+    } else {
+      this._hud?.clearFeedback();
+    }
+  }
+
   private handleGameStateUpdated(state: GameStateDto): void {
+    if (!this.isNewerOrEqualState(state)) {
+      return;
+    }
+
     this._latestState = state;
     this.applyGameState(state);
   }
 
   private handlePlayerAssignmentChanged(assignment: PlayerAssignmentDto): void {
+    if (assignment.gameState.stateVersion < this._latestAssignmentVersion) {
+      return;
+    }
+
+    this._latestAssignmentVersion = assignment.gameState.stateVersion;
     this._localSymbol = assignment.assignedSymbol;
-    this._latestState = assignment.gameState;
-    this.applyGameState(assignment.gameState);
+
+    if (this.isNewerOrEqualState(assignment.gameState)) {
+      this._latestState = assignment.gameState;
+    }
+
+    this._hud?.clearFeedback();
+    if (this._latestState !== null) {
+      this.applyGameState(this._latestState);
+    }
   }
 
   private handleMoveRejected(rejection: MoveResultDto): void {
@@ -353,20 +409,41 @@ export class BoardScene extends Phaser.Scene {
   }
 
   private handleConnectionStateChanged(state: ConnectionStateType): void {
+    if (state === 'Disconnected' || state === 'Reconnecting') {
+      this._isJoined = false;
+      this._localSymbol = null;
+      this._latestState = null;
+      this._latestAssignmentVersion = 0;
+      this._isMovePending = false;
+      this._isRematchPending = false;
+    }
+
     this._hud?.updateConnectionStatus(state);
   }
 
   private handleRematchClick(): void {
+    if (this._isRematchPending) {
+      return;
+    }
+
+    this._isRematchPending = true;
     this._hud?.showFeedback('Requesting rematch...', false);
     this._networkService.requestRematchAsync()
       .then((response) => {
-        this._latestState = response.gameState;
-        this.applyGameState(response.gameState);
+        this._isRematchPending = false;
+        if (this.isNewerOrEqualState(response.gameState)) {
+          this._latestState = response.gameState;
+          this.applyGameState(response.gameState);
+        }
+
         if (!response.isAccepted) {
           this._hud?.showFeedback(response.errorMessage ?? 'Rematch request rejected', true);
+        } else if (response.didRematchStart) {
+          this._hud?.clearFeedback();
         }
       })
       .catch((error: unknown) => {
+        this._isRematchPending = false;
         const message = error instanceof Error ? error.message : 'Failed to request rematch';
         this._hud?.showFeedback(message, true);
       });
@@ -375,18 +452,6 @@ export class BoardScene extends Phaser.Scene {
   private handleRetryJoinClick(): void {
     this._hud?.showFeedback('Retrying join...', false);
     this._networkService.retryJoinAsync()
-      .then((response) => {
-        this._isJoined = response.isJoined;
-        this._localSymbol = response.assignedSymbol;
-        this._latestState = response.gameState;
-        this.applyGameState(response.gameState);
-
-        if (!response.isJoined && response.rejectionReason) {
-          this._hud?.showFeedback(response.rejectionReason, true);
-        } else {
-          this._hud?.clearFeedback();
-        }
-      })
       .catch((error: unknown) => {
         const message = error instanceof Error ? error.message : 'Failed to connect/join';
         this._hud?.showFeedback(message, true);
@@ -398,17 +463,7 @@ export class BoardScene extends Phaser.Scene {
     this._hud?.showFeedback('Connecting to server...', false);
 
     try {
-      const response = await this._networkService.connectAndJoinAsync();
-      this._isJoined = response.isJoined;
-      this._localSymbol = response.assignedSymbol;
-      this._latestState = response.gameState;
-      this.applyGameState(response.gameState);
-
-      if (!response.isJoined && response.rejectionReason) {
-        this._hud?.showFeedback(response.rejectionReason, true);
-      } else {
-        this._hud?.clearFeedback();
-      }
+      await this._networkService.connectAndJoinAsync();
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unable to connect to game server';
       this._hud?.showFeedback(message, true);

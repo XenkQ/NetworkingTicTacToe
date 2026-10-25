@@ -46,6 +46,7 @@ export interface WinningLineDto {
  * Authoritative snapshot of the match state received from the server.
  */
 export interface GameStateDto {
+  readonly stateVersion: number;
   readonly cells: readonly (readonly CellValue[])[];
   readonly status: GameStatusType;
   readonly currentTurn: PlayerSymbolType | null;

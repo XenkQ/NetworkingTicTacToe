@@ -11,8 +11,8 @@ export interface BoardHudCallbacks {
 }
 
 const TOP_BAR_Y = 28;
-const CONNECTION_PILL_X = 135;
-const CONNECTION_PILL_WIDTH = 210;
+const CONNECTION_PILL_X = 185;
+const CONNECTION_PILL_WIDTH = 310;
 const CONNECTION_PILL_HEIGHT = 32;
 
 const SYMBOL_BADGE_X = 665;
@@ -62,8 +62,8 @@ export class BoardHud {
 
     const pillBg = scene.add.rectangle(0, 0, CONNECTION_PILL_WIDTH, CONNECTION_PILL_HEIGHT, 0x1f2330)
       .setStrokeStyle(1, 0x3a4058);
-    this._connectionDot = scene.add.circle(-80, 0, 5, 0xe74c3c);
-    this._connectionText = scene.add.text(-65, 0, 'Disconnected', {
+    this._connectionDot = scene.add.circle(-138, 0, 5, 0xe74c3c);
+    this._connectionText = scene.add.text(-124, 0, 'Disconnected — Check Server Connection', {
       fontFamily: 'Arial, Helvetica, sans-serif',
       fontSize: '12px',
       fontStyle: 'bold',
@@ -188,16 +188,32 @@ export class BoardHud {
         this._connectionDot.setFillStyle(0xf39c12);
         this._connectionText.setText('Connecting...');
         this._connectionText.setColor('#f39c12');
+        this._symbolText.setText('Connecting...');
+        this._symbolText.setColor('#dfe6e9');
+        this._statusText.setText('Connecting to server...');
+        this._statusText.setColor('#b2bec3');
         break;
       case 'Reconnecting':
         this._connectionDot.setFillStyle(0xf39c12);
         this._connectionText.setText('Reconnecting...');
         this._connectionText.setColor('#f39c12');
+        this._symbolText.setText('Reconnecting...');
+        this._symbolText.setColor('#f39c12');
+        this._statusText.setText('Connection lost. Reconnecting to server...');
+        this._statusText.setColor('#fdcb6e');
+        this._rematchContainer.setVisible(false);
+        this._retryContainer.setVisible(false);
         break;
       case 'Disconnected':
         this._connectionDot.setFillStyle(0xe74c3c);
-        this._connectionText.setText('Disconnected');
+        this._connectionText.setText('Disconnected — Check Server Connection');
         this._connectionText.setColor('#e74c3c');
+        this._symbolText.setText('Offline');
+        this._symbolText.setColor('#e74c3c');
+        this._statusText.setText('Disconnected — Check Server Connection');
+        this._statusText.setColor('#ff7675');
+        this._rematchContainer.setVisible(false);
+        this._retryContainer.setVisible(true);
         break;
     }
   }
@@ -225,9 +241,7 @@ export class BoardHud {
     let bannerColor = '#ffffff';
 
     if (!isJoined) {
-      bannerMessage = state.status === 'InProgress'
-        ? 'Game In Progress (Spectating)'
-        : 'Game is currently full (2/2 players active)';
+      bannerMessage = 'Game is currently full (2/2 players active)';
       bannerColor = '#a0a0b0';
     } else {
       switch (state.status) {

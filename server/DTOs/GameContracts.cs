@@ -14,6 +14,7 @@ public sealed record WinningLineDto(BoardCellCoordinateDto[] Cells);
 /// Authoritative snapshot of the match state serialized to connected clients.
 /// </summary>
 public sealed record GameStateDto(
+    long StateVersion,
     string[][] Cells,
     string Status,
     string? CurrentTurn,

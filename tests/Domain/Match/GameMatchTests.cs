@@ -491,4 +491,72 @@ public sealed class GameMatchTests
         Assert.Null(match.PlayerXConnectionId);
         Assert.Null(match.PlayerOConnectionId);
     }
+
+    [Fact]
+    public void TryMakeMove_DetectsWinOnNinthMove_InsteadOfDraw()
+    {
+        // Arrange
+        GameMatch match = new();
+        match.TryAddPlayer(PLAYER_1);
+        match.TryAddPlayer(PLAYER_2);
+
+        // Board progression where 9th move at (2, 2) completes column 2 for X:
+        // X O X
+        // O O X
+        // O X X (at 2,2)
+        match.TryMakeMove(PLAYER_1, 0, 0); // X
+        match.TryMakeMove(PLAYER_2, 0, 1); // O
+        match.TryMakeMove(PLAYER_1, 0, 2); // X
+        match.TryMakeMove(PLAYER_2, 1, 0); // O
+        match.TryMakeMove(PLAYER_1, 1, 2); // X
+        match.TryMakeMove(PLAYER_2, 1, 1); // O
+        match.TryMakeMove(PLAYER_1, 2, 1); // X
+        match.TryMakeMove(PLAYER_2, 2, 0); // O
+
+        // Act - 9th move fills board and wins right column for X
+        MoveAttemptResult ninthMove = match.TryMakeMove(PLAYER_1, 2, 2);
+
+        // Assert
+        Assert.True(ninthMove.IsValid);
+        Assert.True(match.Board.IsFull());
+        Assert.Equal(GameStatus.Won, ninthMove.ResultingStatus);
+        Assert.Equal(PlayerSymbol.X, ninthMove.Winner);
+        Assert.NotNull(ninthMove.WinningLine);
+        Assert.Equal(GameStatus.Won, match.Status);
+        Assert.Equal(PlayerSymbol.X, match.Winner);
+    }
+
+    [Fact]
+    public void HandleDisconnect_DuringPostGameRematchNegotiation_ResetsRematchFlagsAndPromotesRemainingPlayerToX()
+    {
+        // Arrange
+        GameMatch match = new();
+        match.TryAddPlayer(PLAYER_1);
+        match.TryAddPlayer(PLAYER_2);
+
+        match.TryMakeMove(PLAYER_1, 0, 0);
+        match.TryMakeMove(PLAYER_2, 1, 0);
+        match.TryMakeMove(PLAYER_1, 0, 1);
+        match.TryMakeMove(PLAYER_2, 1, 1);
+        match.TryMakeMove(PLAYER_1, 0, 2); // X wins
+
+        match.TryAcceptRematch(PLAYER_1); // Player X votes for rematch (1/2)
+        Assert.True(match.HasPlayerXAcceptedRematch);
+
+        // Act - Player X disconnects while waiting for Player O's rematch vote
+        DisconnectResult result = match.HandleDisconnect(PLAYER_1);
+
+        // Assert
+        Assert.True(result.WasParticipant);
+        Assert.Equal(PLAYER_2, result.RemainingPlayerConnectionId);
+        Assert.Equal(PlayerSymbol.X, result.RemainingPlayerNewSymbol);
+        Assert.Equal(GameStatus.AbortedByDisconnect, match.Status);
+        Assert.Equal(PLAYER_2, match.PlayerXConnectionId);
+        Assert.Null(match.PlayerOConnectionId);
+        Assert.False(match.HasPlayerXAcceptedRematch);
+        Assert.False(match.HasPlayerOAcceptedRematch);
+        Assert.Null(match.Winner);
+        Assert.Null(match.WinningLine);
+        Assert.True(match.Board.IsCellEmpty(0, 0));
+    }
 }

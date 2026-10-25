@@ -4,7 +4,7 @@ Date: 2026-10-25
 
 ## Overview
 
-Successfully implemented Phase 4 of the Networking Tic-Tac-Toe MVP specification (`.agents/context/implementations/plans/mvp-spec.md`). This phase delivers the browser presentation layer using Phaser 4 with strict TypeScript, providing a responsive 3x3 interactive board, smooth X/O scale-in placement animations, winning line overlays, a comprehensive HUD (connection status pill, assigned symbol badge, primary turn/status banner, and feedback messages), and contextual rematch/retry-join buttons. All Phaser lifecycle cleanup (`SHUTDOWN`) rules and architectural constraints are strictly honored.
+Successfully implemented Phase 4 of the Networking Tic-Tac-Toe MVP specification (.agents/context/implementations/plans/mvp-spec.md). This phase delivers the browser presentation layer using Phaser 4 with strict TypeScript, providing a responsive 3x3 interactive board, smooth X/O scale-in placement animations, winning line overlays, a comprehensive HUD (connection status pill, assigned symbol badge, primary turn/status banner, and feedback messages), and contextual rematch/retry-join buttons. All Phaser lifecycle cleanup (`SHUTDOWN`) rules and architectural constraints are strictly honored.
 
 ## Key Changes
 
@@ -39,7 +39,7 @@ Successfully implemented Phase 4 of the Networking Tic-Tac-Toe MVP specification
 ## Documentation & Standards
 
 - Implementation Plan: .agents/context/implementations/plans/mvp-spec.md
-- Coding Standards: Verified strict compliance with `.agents/context/project-coding-standards.md`:
+- Coding Standards: Verified strict compliance with .agents/context/project-coding-standards.md:
   - `TS-ARCH001`: Zero explicit `any` across client TypeScript codebase.
   - `TS-ARCH002`: Zero `@ts-ignore` or error suppression directives.
   - `TS-ARCH003`: Complete separation of presentation from transport; zero `HubConnectionBuilder` references in scenes or UI components.
@@ -70,5 +70,5 @@ Result: All 79 xUnit tests passed in 44 ms.
 
 ## Follow-up / Manual Testing Steps
 
-1. In Phase 5, verify ASP.NET Core hosting of the static Vite client bundle (`client/dist/`) and run the full end-to-end LAN multi-client verification gate.
+1. In Phase 5, verify ASP.NET Core hosting of the static Vite client bundle (client/dist/) and run the full end-to-end LAN multi-client verification gate.
 2. Run two local browser sessions (`http://localhost:5173` or ASP.NET Core server port) to test live turn-based synchronization, rematch negotiation, and disconnect/reconnect recovery.

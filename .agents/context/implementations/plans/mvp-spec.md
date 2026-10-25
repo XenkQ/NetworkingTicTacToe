@@ -199,7 +199,7 @@ All C# DTOs are immutable positional `record` types in server/DTOs/GameContracts
 |---|---|---|
 | `BoardCellCoordinateDto(int Row, int Col)` | `BoardCellCoordinateDto { readonly row: number; readonly col: number; }` | Coordinates for moves and winning line highlights |
 | `WinningLineDto(BoardCellCoordinateDto[] Cells)` | `WinningLineDto { readonly cells: readonly BoardCellCoordinateDto[]; }` | 3 winning coordinates for rendering win line |
-| `GameStateDto(string[][] Cells, string Status, string? CurrentTurn, string? Winner, WinningLineDto? WinningLine, bool IsPlayerXConnected, bool IsPlayerOConnected, bool HasPlayerXAcceptedRematch, bool HasPlayerOAcceptedRematch, string StatusMessage)` | `GameStateDto { readonly cells: readonly (readonly CellValue[])[]; readonly status: GameStatusType; readonly currentTurn: PlayerSymbolType \| null; readonly winner: PlayerSymbolType \| null; readonly winningLine: WinningLineDto \| null; readonly isPlayerXConnected: boolean; readonly isPlayerOConnected: boolean; readonly hasPlayerXAcceptedRematch: boolean; readonly hasPlayerOAcceptedRematch: boolean; readonly statusMessage: string; }` | Canonical snapshot of the match state |
+| `GameStateDto(long StateVersion, string[][] Cells, string Status, string? CurrentTurn, string? Winner, WinningLineDto? WinningLine, bool IsPlayerXConnected, bool IsPlayerOConnected, bool HasPlayerXAcceptedRematch, bool HasPlayerOAcceptedRematch, string StatusMessage)` | `GameStateDto { readonly stateVersion: number; readonly cells: readonly (readonly CellValue[])[]; readonly status: GameStatusType; readonly currentTurn: PlayerSymbolType \| null; readonly winner: PlayerSymbolType \| null; readonly winningLine: WinningLineDto \| null; readonly isPlayerXConnected: boolean; readonly isPlayerOConnected: boolean; readonly hasPlayerXAcceptedRematch: boolean; readonly hasPlayerOAcceptedRematch: boolean; readonly statusMessage: string; }` | Canonical versioned snapshot of the match state |
 | `JoinGameResponseDto(bool IsJoined, string? AssignedSymbol, string? RejectionReason, GameStateDto GameState)` | `JoinGameResponseDto { readonly isJoined: boolean; readonly assignedSymbol: PlayerSymbolType \| null; readonly rejectionReason: string \| null; readonly gameState: GameStateDto; }` | Returned directly from `JoinGame` Hub RPC |
 | `MakeMoveRequestDto(int Row, int Col)` | `MakeMoveRequestDto { readonly row: number; readonly col: number; }` | Sent by client when clicking a cell |
 | `MoveResultDto(bool IsAccepted, string ErrorCode, string? ErrorMessage, int Row, int Col, string? Symbol, GameStateDto GameState)` | `MoveResultDto { readonly isAccepted: boolean; readonly errorCode: MoveErrorCodeType; readonly errorMessage: string \| null; readonly row: number; readonly col: number; readonly symbol: PlayerSymbolType \| null; readonly gameState: GameStateDto; }` | Returned to caller and broadcast on move |
@@ -217,8 +217,9 @@ All C# DTOs are immutable positional `record` types in server/DTOs/GameContracts
 - **Client-to-Server Hub Invocations (`GameHub : Hub<IGameClient>`):**
   - `Task<JoinGameResponseDto> JoinGame()` — Attempts to seat `Context.ConnectionId` in the match. If the second player joins and starts the match, broadcasts `OnGameStateUpdated` to both participants.
   - `Task<MoveResultDto> MakeMove(MakeMoveRequestDto request)` — Validates and applies a move for `Context.ConnectionId`. If valid, broadcasts `OnGameStateUpdated` to both participants; if invalid, invokes `OnMoveRejected` on caller and returns the rejection DTO without altering the board.
-  - `Task<RematchResponseDto> RequestRematch()` — Registers a rematch vote for `Context.ConnectionId`. If one player has voted, broadcasts `OnGameStateUpdated` so both clients see `(1/2)` rematch status. If both players have voted, swaps symbols (`X <-> O`), resets the board, sends `OnPlayerAssignmentChanged` individually to Player X and Player O with their swapped symbols, and broadcasts the new `GameStateDto`.
-  - `override Task OnDisconnectedAsync(Exception? exception)` — Delegates disconnect cleanup to `IGameSessionService`. If an active participant disconnected and an opponent remains, sends `OnPlayerAssignmentChanged` (with `AssignedSymbol = "X"` and `AbortedByDisconnect` state message) to the remaining player so they are immediately ready for a returning/new second player.
+  - `Task<RematchResponseDto> RequestRematch()` — Registers a rematch vote for `Context.ConnectionId`. If a new vote is recorded and only one player has voted, broadcasts `OnGameStateUpdated` so both clients see `(1/2)` rematch status (duplicate votes from the same player return idempotently without re-broadcasting). If both players have voted, swaps symbols (`X <-> O`), resets the board, dispatches `OnPlayerAssignmentChanged` concurrently (`Task.WhenAll`) to Player X and Player O with their swapped symbols, and broadcasts the new `GameStateDto`.
+  - `Task<GameStateDto> GetGameState()` — Returns the current authoritative `GameStateDto` snapshot.
+  - `override Task OnDisconnectedAsync(Exception? exception)` — Delegates disconnect cleanup to `IGameSessionService`. If an active participant disconnected and an opponent remains, sends `OnPlayerAssignmentChanged` (with `AssignedSymbol = "X"` and the embedded `AbortedByDisconnect` `GameStateDto` snapshot) to the remaining player so they are immediately ready for a returning/new second player.
 
 ---
 
@@ -226,19 +227,20 @@ All C# DTOs are immutable positional `record` types in server/DTOs/GameContracts
 
 - **Interfaces & Services (server/Services/GameSessionService.cs):**
   - `IGameSessionService` is colocated above `GameSessionService` in server/Services/GameSessionService.cs.
-  - Holds `private readonly Lock _syncRoot = new();` and `private readonly GameMatch _match = new();`.
-  - Every public service method acquires `lock (_syncRoot)` before reading or mutating `_match` and constructs immutable DTO snapshots inside the lock so Hub methods can safely await SignalR outbound messages outside the lock.
+  - Holds `private readonly Lock _syncRoot = new();`, `private readonly GameMatch _match = new();`, and `private long _stateVersion;`.
+  - Every public service method acquires `lock (_syncRoot)` before reading or mutating `_match`, increments `_stateVersion` only when match state actually mutates (skipping increments on idempotent re-joins or duplicate rematch votes), and constructs immutable versioned DTO snapshots inside the lock so Hub methods can safely await SignalR outbound messages outside the lock.
   - Exposes:
     - `JoinSession(string connectionId)`
     - `MakeMove(string connectionId, int row, int col)`
     - `RequestRematch(string connectionId)`
     - `HandleDisconnect(string connectionId)`
+    - `GetCurrentGameState()`
     - `GetParticipantConnectionIds()`
-- **DI Registration & LAN Hosting (server/Program.cs):**
+- **DI Registration & LAN Hosting (server/Program.cs & server/NetworkingTicTacToe.Server.csproj):**
   - Registers `builder.Services.AddSingleton<IGameSessionService, GameSessionService>();` and `builder.Services.AddSignalR();`.
-  - Configures CORS for local Vite development (`http://localhost:5173`) and binds Kestrel so LAN clients can reach the server via the host machine's LAN IP.
-  - Configures static file serving (`UseDefaultFiles`, `UseStaticFiles`, `MapFallbackToFile("index.html")`) pointing to the built client assets (configured to copy/output into server/wwwroot/ during build or served from client/dist/ when present).
-  - Maps the SignalR hub at `/hubs/game`.
+  - Configures CORS (`LanCorsPolicy` via `IsAllowedLanOrLocalDevOrigin`) for loopback/Vite development and private RFC1918/link-local LAN IPv4 origins, and binds Kestrel (`http://0.0.0.0:5079` via `Urls` fallback in server/appsettings.json and server/Properties/launchSettings.json) so LAN clients can reach the server via the host machine's LAN IP in both development and published modes.
+  - Configures static file serving (`UseDefaultFiles`, `UseStaticFiles`, `MapFallbackToFile("index.html")`) pointing to client/dist/ when present (disposing `PhysicalFileProvider` on `ApplicationStopping`) or falling back to server/wwwroot/, with server/NetworkingTicTacToe.Server.csproj packaging built client/dist/ files into publish `wwwroot/` output when present.
+  - Maps `/health` and the SignalR hub at `/hubs/game`.
 
 ---
 
@@ -246,19 +248,25 @@ All C# DTOs are immutable positional `record` types in server/DTOs/GameContracts
 
 - **Network Service Integration (client/src/services/GameNetworkService.ts):**
   - Encapsulates `@microsoft/signalr` `HubConnection` configured with `withAutomaticReconnect()`.
+  - Tracks `_latestGameState` and `_latestAssignmentVersion` independently so a newer board state update (`stateVersion = v + 1`) never suppresses an earlier symbol assignment (`stateVersion = v`), while discarding genuinely stale snapshots.
+  - Resets cached session version/join state on `onreconnecting` and `onclose` so reconnections after a server restart accept fresh state versions starting from `1`.
+  - Upon `onreconnected`, automatically invokes `connectAndJoinAsync()` (since SignalR assigns a new `ConnectionId` after reconnect) and dispatches updated session/assignment/state events (or transitions to disconnected/unjoined state with `"Retry Join"` enabled if re-joining fails).
   - Never imported as raw SignalR inside Phaser scenes (preserving rule `TS-ARCH003`).
   - Exposes strongly typed methods:
     - `connectAndJoinAsync(): Promise<JoinGameResponseDto>`
     - `retryJoinAsync(): Promise<JoinGameResponseDto>`
     - `makeMoveAsync(row: number, col: number): Promise<MoveResultDto>`
     - `requestRematchAsync(): Promise<RematchResponseDto>`
-    - Event subscription helpers: `onGameStateUpdated`, `offGameStateUpdated`, `onPlayerAssignmentChanged`, `offPlayerAssignmentChanged`, `onMoveRejected`, `offMoveRejected`, `onConnectionStateChanged`, `offConnectionStateChanged`.
+    - `getGameStateAsync(): Promise<GameStateDto>`
+    - `disconnectAsync(): Promise<void>`
+    - Event subscription helpers: `onGameStateUpdated`, `offGameStateUpdated`, `onPlayerAssignmentChanged`, `offPlayerAssignmentChanged`, `onMoveRejected`, `offMoveRejected`, `onConnectionStateChanged`, `offConnectionStateChanged`, `onSessionJoined`, `offSessionJoined`.
 - **Phaser Scenes & UI (client/src/scenes/BoardScene.ts & client/src/ui/BoardHud.ts):**
   - client/src/main.ts configures `Phaser.Game` (`800x600`, `Phaser.Scale.FIT`, `Phaser.Scale.CENTER_BOTH`) and registers `BoardScene`.
   - `BoardScene` manages visual presentation and pointer input:
     - Resets all per-session state in `init()`.
+    - Guards in-flight move (`_isMovePending`) and rematch (`_isRematchPending`) requests against rapid double-clicks, and checks connection status before reporting full-room errors on cell clicks.
     - Renders the top HUD via `BoardHud`:
-      - **Connection Status Pill:** `"Connected (LAN)"`, `"Reconnecting..."`, or `"Disconnected — Check Server Connection"`.
+      - **Connection Status Pill:** `"Connected (LAN)"`, `"Connecting..."`, `"Reconnecting..."`, or `"Disconnected — Check Server Connection"`. When disconnected or reconnecting, `BoardHud` also updates the symbol badge and main status banner accordingly so they never stay stuck on stale turn/connecting labels.
       - **Assigned Symbol Badge:** `"Your Symbol: X"`, `"Your Symbol: O"`, or `"Spectator (Room Busy)"`.
       - **Primary Status Banner:** Clearly communicates waiting state, active turn (`"Your Turn (X)"` vs `"Opponent's Turn (O)"`), match outcome (`"You Win! (X)"`, `"Opponent Wins (O)"`, `"Match Draw!"`), rejection feedback, or disconnect notice (`"Opponent disconnected. Waiting for a new opponent..."`).
     - Renders the **3x3 Interactive Grid**:
@@ -303,8 +311,8 @@ All C# DTOs are immutable positional `record` types in server/DTOs/GameContracts
 - [x] **Step 2.1:** Create immutable SignalR DTO records and thread-safe `GameSessionService` with colocated `IGameSessionService`.
   - Files: server/DTOs/GameContracts.cs, server/Services/GameSessionService.cs
   - Verification: `dotnet build`
-- [x] **Step 2.2:** Implement `GameHub` (`Hub<IGameClient>`) and wire DI, Kestrel LAN configuration, and static asset hosting in server/Program.cs, plus xUnit service concurrency/flow tests.
-  - Files: server/Hubs/GameHub.cs, server/Program.cs, server/Properties/launchSettings.json, tests/Services/GameSessionServiceTests.cs
+- [x] **Step 2.2:** Implement `GameHub` (`Hub<IGameClient>`) and wire DI, Kestrel LAN configuration, and static asset hosting in server/Program.cs, plus xUnit service and hub concurrency/flow tests.
+  - Files: server/Hubs/GameHub.cs, server/Program.cs, server/Properties/launchSettings.json, tests/Services/GameSessionServiceTests.cs, tests/Hubs/GameHubTests.cs
   - Verification: `dotnet build` & `dotnet test`
 
 ### Phase 3: Client Scaffolding & SignalR Network Service
