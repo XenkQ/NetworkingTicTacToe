@@ -4,6 +4,12 @@ A 2-player networked turn-based Tic-Tac-Toe web game built with an authoritative
 
 This project is a personal mini-project designed to validate initial project bootstrapping and configuration skills, with a strong focus on **AI-native agentic workflows** and the rapid end-to-end delivery of a simple game featuring a real-time networking layer.
 
+## Demo
+
+https://github.com/user-attachments/assets/3e5970f8-0415-4fc1-8b2b-dfb89064441f
+
+
+
 ## Purpose & Key Features
 
 - **Authoritative Server Architecture**: The server owns the canonical 3x3 board state, turn order, move legality, win/draw evaluation, and session lifecycle. Clients render authoritative snapshots and dispatch player intent over SignalR WebSockets.
