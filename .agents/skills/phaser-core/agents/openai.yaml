@@ -1,0 +1,4 @@
+interface:
+  display_name: "Phaser Core"
+  short_description: "Phaser 4 Scene lifecycle, asset loading, and client UI architecture"
+  default_prompt: "Use $phaser-core to implement or review Phaser 4 scenes, canvas scaling, lifecycle cleanup, and reactive client rendering."

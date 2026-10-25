@@ -1,0 +1,4 @@
+interface:
+  display_name: "Batch Codebase Review"
+  short_description: "Coordinate scoped architecture and standards reviews"
+  default_prompt: "Use $batch-codebase-review to partition the requested scope and perform an audit-only architecture and coding-standards review."

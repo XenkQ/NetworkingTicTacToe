@@ -1,0 +1,4 @@
+interface:
+  display_name: "Architecture Review"
+  short_description: "Review DI, client-server boundaries, and network lifecycle safety"
+  default_prompt: "Use $architecture-review to review this change for DI correctness, authoritative server validation, DTO contract alignment, and scene lifecycle cleanup."

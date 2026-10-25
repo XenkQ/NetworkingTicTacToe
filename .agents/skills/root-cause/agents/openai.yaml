@@ -1,0 +1,4 @@
+interface:
+  display_name: "Root Cause Investigation"
+  short_description: "Diagnose server, SignalR, or Phaser client bugs with source evidence"
+  default_prompt: "Use $root-cause to investigate this bug or exception and report its cause and a minimal proposed fix without changing runtime files."

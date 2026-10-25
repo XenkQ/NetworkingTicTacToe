@@ -1,0 +1,4 @@
+interface:
+  display_name: "Pre-Commit Gate"
+  short_description: "Verify full-stack changes through the pre-commit gate"
+  default_prompt: "Use $pre-commit-gate to verify these changes through all applicable server, test, client, architecture, and lifecycle gates."

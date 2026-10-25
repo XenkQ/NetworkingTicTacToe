@@ -1,0 +1,39 @@
+# .NET / C# Build & Test Artifacts
+bin/
+obj/
+out/
+TestResults/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+.vscode/
+*.nupkg
+*.snupkg
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Node.js / Vite / TypeScript Client Artifacts
+node_modules/
+dist/
+dist-ssr/
+.vite/
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.tsbuildinfo
+
+# OS & Editor Files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Agent Temporary Workspace
+.agents/context/tmp/*
+!.agents/context/tmp/.gitkeep
