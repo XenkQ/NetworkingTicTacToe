@@ -13,7 +13,7 @@ import type {
   PlayerAssignmentDto,
   PlayerSymbolType,
   RematchResponseDto
-} from '../types/GameContracts';
+} from '../types';
 
 const DEFAULT_HUB_URL = '/hubs/game';
 const RECONNECT_INTERVALS_MS = [0, 1000, 2000, 5000, 10000];

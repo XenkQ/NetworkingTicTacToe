@@ -3,7 +3,7 @@ import type {
   ConnectionStateType,
   GameStateDto,
   PlayerSymbolType
-} from '../types/GameContracts';
+} from '../types';
 
 export interface BoardHudCallbacks {
   readonly onRematchClicked: () => void;

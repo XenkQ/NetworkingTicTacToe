@@ -7,7 +7,7 @@ import type {
   PlayerAssignmentDto,
   PlayerSymbolType,
   WinningLineDto
-} from '../types/GameContracts';
+} from '../types';
 import type { IGameNetworkService } from '../services/GameNetworkService';
 import { BoardHud } from '../ui/BoardHud';
 
